@@ -1,0 +1,24 @@
+{
+  "name": "test_token",
+  "version": "1.0.0",
+  "description": "",
+  "main": "truffle.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "bignumber.js": "^7.0.1",
+    "child-process": "^1.0.2",
+    "fs": "0.0.1-security",
+    "npm": "^5.8.0",
+    "truffle": "^4.1.6",
+    "zeppelin-solidity": "^1.8.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
