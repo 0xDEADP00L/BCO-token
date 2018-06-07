@@ -39,11 +39,6 @@ contract BCOToken is MintableToken, CanReclaimToken {
 
     function () public {}
 
-    /* function reclaimToken(ERC20Basic token) external onlyOwner {
-        uint256 balance = token.balanceOf(this);
-        this.transfer(owner, balance);
-    } */
-
     function mintPresale(uint256 _presaleAmount, address _receiver) public onlyOwner returns (bool) {
         require(!m_presaleFinished);
         require(_presaleAmount > 0);
@@ -60,7 +55,8 @@ contract BCOToken is MintableToken, CanReclaimToken {
     }
 
     function mint(address _to, uint256 _amount) public extendOwner canMint returns (bool) {
-        require(msg.sender != address(0));
+        require(_to != address(0));
+        require(_amount != 0);
         uint256 newTotalSupply = totalSupply_.add(_amount);
         require(newTotalSupply <= maxTotalSupply);
 

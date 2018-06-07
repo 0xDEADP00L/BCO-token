@@ -39,12 +39,6 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
         m_tokenDiscountThreshold = 10**4;
     }
 
-    modifier extendOwner {
-        require(address(m_token) != address(0));
-        require((msg.sender == owner) || (msg.sender == address(m_token)));
-        _;
-    }
-
     modifier onlyToken() {
         require(msg.sender == address(m_token));
         _;

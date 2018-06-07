@@ -1,9 +1,17 @@
 var BCOToken = artifacts.require('BCOToken');
-var BCODividends = artifacts.require('BCODividendTestable');
+var BCODividends = artifacts.require('BCODividend');
 
 let denominationUnit = "szabo";
 function money(number) {
 	return web3.toWei(number, denominationUnit);
+}
+
+function assertThrows(promise, message) {
+    return promise.then(() => {
+        assert.isNotOk(true, message)
+    }).catch((e) => {
+        assert.include(e.message, 'VM Exception')
+    })
 }
 
 let nearErrorValue = 1;
@@ -41,6 +49,13 @@ contract('TestBCOToken', function(accounts) {
 		await token.mintPresale(presaleAmount, owner);
 	});
 
+	describe('token', function () {
+		it('should reject payments', async function() {
+			let paymentToTokenAddress = token.sendTransaction({value: tokenPrice, from: acc1});
+			assertThrows(paymentToTokenAddress, "Token is not rejecting payments.");
+		});
+	});
+
 	describe('account', function () {
 		it('should have zero token balance at start', async function() {
 			let tokenBalance = await token.balanceOf(acc1);
@@ -64,8 +79,8 @@ contract('TestBCOToken', function(accounts) {
 			let tokenBalance3_empty = await token.balanceOf(acc3);
 			assert.equal(tokenBalance3_empty.toNumber(), 0);
 
-			await dividends.buyToken({value: _ethers2, from: acc2});
-			await dividends.buyToken({value: _ethers3, from: acc3});
+			await dividends.sendTransaction({value: _ethers2, from: acc2});
+			await dividends.sendTransaction({value: _ethers3, from: acc3});
 
 			assert.equal(web3.eth.getBalance(dividends.address).toNumber(), _totalEthers);
 

@@ -14,7 +14,9 @@
     "truffle": "^4.1.11",
     "zeppelin-solidity": "^1.8.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "solidity-coverage": "^0.5.4"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
