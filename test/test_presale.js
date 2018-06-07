@@ -1,5 +1,5 @@
 let BCOToken = artifacts.require('BCOToken');
-let BCODividends = artifacts.require('BCODividend');
+let BCODividends = artifacts.require('BCODividendTestable');
 
 let denominationUnit = "szabo";
 function money(number) {

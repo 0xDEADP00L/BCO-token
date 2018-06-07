@@ -1,7 +1,8 @@
-pragma solidity ^0.4.18;
+pragma solidity 0.4.24;
+
 
 contract Log {
-    function ln(uint256 _x) pure public returns (int256) {
+    function ln(uint256 _x) public pure returns (int256) {
         int256 epsilon = 1000;
         int256 x = int256(_x);
         int256 result = 0;
@@ -21,9 +22,5 @@ contract Log {
             next = next * x / 10**18;
         }
         return result;
-    }
-
-    function lngas(uint256 _x) public returns (int256) {
-        return ln(_x);
     }
 }

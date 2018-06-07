@@ -1,4 +1,4 @@
-var Log = artifacts.require('Log');
+var Log = artifacts.require('LogTestable');
 
 const { exec } = require('child_process');
 let fs = require('fs');
