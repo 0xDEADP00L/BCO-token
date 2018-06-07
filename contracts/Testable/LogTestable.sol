@@ -4,7 +4,7 @@ import "../Log.sol";
 
 
 contract LogTestable is Log {
-    function lngas(uint256 _x) public pure returns (int256) {
+    function lngas(uint256 _x) public returns (int256) {
         return ln(_x);
     }
 }

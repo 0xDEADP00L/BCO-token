@@ -152,9 +152,9 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
     }
 
     function priceWithDiscount(uint256 _tokenAmount, uint256 _totalTokens) public view returns (uint256) {
-        uint256 s = (_totalTokens + _tokenAmount) * rounding / _totalTokens;
+        uint256 s = _totalTokens.add(_tokenAmount).mul(rounding).div(_totalTokens);
         int256 log = ln(s);
-        return m_tokenPrice * _totalTokens * uint256(log) / rounding;
+        return m_tokenPrice.mul(_totalTokens).mul(uint256(log)).div(rounding);
     }
 
     function tokensAmountFrom(uint256 _value) public view returns (uint256) {
