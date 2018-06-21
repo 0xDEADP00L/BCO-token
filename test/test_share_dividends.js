@@ -1,5 +1,5 @@
-let BCOToken = artifacts.require('BCOToken');
-let BCODividends = artifacts.require('BCODividendTestable');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNDividends = artifacts.require('BLLNDividendTestable');
 
 let denominationUnit = "szabo";
 function money(number) {
@@ -34,16 +34,16 @@ contract('TestShareDividends', function(accounts) {
 	let acc3 = accounts[3];
 
     beforeEach(async function() {
-		dividends = await BCODividends.new(presaleAmount, maxTotalSupply);
-		token = await BCOToken.new(dividends.address);
+		dividends = await BLLNDividends.new(maxTotalSupply);
+		token = await BLLNToken.new(dividends.address);
 		await dividends.setTokenAddress(token.address);
-		await token.mintPresale(presaleAmount, owner);
+		await dividends.mintPresale(presaleAmount, owner);
     });
 
     describe('Share dividends', function() {
         it('should share dividends from company', async function() {
             ///@test _given
-			let tokenPrice = money(170);
+			let tokenPrice = money(300);
 			let _shareEthersOwner = {value: money(100), from: owner};
 
 			///@test _then

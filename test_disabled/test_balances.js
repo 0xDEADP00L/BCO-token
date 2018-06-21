@@ -1,5 +1,5 @@
-let BCOToken = artifacts.require('BCOToken');
-let BCODividends = artifacts.require('BCODividendTestable');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNDividends = artifacts.require('BLLNDividendTestable');
 
 let denominationUnit = "szabo";
 function money(number) {
@@ -21,8 +21,8 @@ contract('Dividends convergence', function(accounts) {
     let acc4 = accounts[4];
 
     before(async function () {
-		dividends = await BCODividends.new(presaleAmount, maxTotalSupply, dividendCoefficient);
-		token = await BCOToken.new(dividends.address);
+		dividends = await BLLNDividends.new(dividendCoefficient);
+		token = await BLLNToken.new(dividends.address);
 		await dividends.setTokenAddress(token.address);
 		await token.mintPresaleAmount(presaleAmount);
 	});

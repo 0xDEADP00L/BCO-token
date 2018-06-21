@@ -2,7 +2,10 @@ pragma solidity 0.4.24;
 
 
 contract Log {
-    function ln(uint256 _x) public pure returns (int256) {
+    function ln(uint256 _x)  public pure returns (int256) {
+        require(_x < 2**255);
+        require(_x >= 10**18);
+        
         int256 epsilon = 1000;
         int256 x = int256(_x);
         int256 result = 0;

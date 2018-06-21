@@ -1,5 +1,5 @@
-let BCOToken = artifacts.require('BCOToken');
-let BCODividends = artifacts.require('BCODividendTestable');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNDividends = artifacts.require('BLLNDividendTestable');
 
 let denominationUnit = "szabo";
 function money(number) {
@@ -8,7 +8,7 @@ function money(number) {
 
 let ownerAmount = 90*(10**6);
 let maxTotalSupply = 250*(10**6);
-let tokenPrice = money(170);
+let tokenPrice = money(300);
 
 contract('TestBulkDiscount', function(accounts) {
     let dividends;
@@ -21,14 +21,16 @@ contract('TestBulkDiscount', function(accounts) {
     let acc4 = accounts[4];
 
     beforeEach(async function() {
-        dividends = await BCODividends.new(ownerAmount, maxTotalSupply);
-		token = await BCOToken.new(dividends.address);
+        dividends = await BLLNDividends.new(maxTotalSupply);
+		token = await BLLNToken.new(dividends.address);
 		await dividends.setTokenAddress(token.address);
-		await token.mintPresale(ownerAmount, owner);
+		await dividends.mintPresale(ownerAmount, owner);
     });
 
     describe('bulk sale', function() {
         it('should not activate until 10k tokens buy', async function() {
+			await dividends.setTokenDiscountThreshold(10**4);
+
             let eth = tokenPrice * (10**4 - 1);
 
             await dividends.buyToken({value: eth, from: acc1});

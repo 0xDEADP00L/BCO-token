@@ -1,4 +1,4 @@
-# BCO ERC20 Token
+# BLLN ERC20 Token
 
 ## Quick start
 

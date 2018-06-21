@@ -146,8 +146,8 @@ contract('TestTest', function(accounts) {
 
     // BeforeEach function will be called just before each 'it' function
 	beforeEach(async function () {
-        dividends = await BCODividends.new(presaleAmount, maxTotalSupply);
-		token = await BCOToken.new(dividends.address, presaleAmount);
+        dividends = await BLLNDividends.new(presaleAmount, maxTotalSupply);
+		token = await BLLNToken.new(dividends.address, presaleAmount);
 		await dividends.setTokenAddress(token.address);
 	});
 

@@ -1,5 +1,5 @@
-let BCOToken = artifacts.require('BCOToken');
-let BCODividends = artifacts.require('BCODividendTestable');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNDividends = artifacts.require('BLLNDividendTestable');
 
 var BigNumber = require('bignumber.js');
 
@@ -19,8 +19,8 @@ contract('BenchDividendsRoundingError', function (accounts) {
     let token;
 
     before(async function () {
-		dividends = await BCODividends.new(presaleAmount, maxTotalSupply);
-		token = await BCOToken.new(dividends.address);
+		dividends = await BLLNDividends.new(maxTotalSupply);
+		token = await BLLNToken.new(dividends.address);
 		await dividends.setTokenAddress(token.address);
 		await token.mintPresale(presaleAmount, accounts[0]);
 	});

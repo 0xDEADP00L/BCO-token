@@ -1,5 +1,5 @@
-var BCOToken = artifacts.require('BCOToken');
-var BCODividends = artifacts.require('BCODividend');
+var BLLNToken = artifacts.require('BLLNToken');
+var BLLNDividends = artifacts.require('BLLNDividend');
 
 let denominationUnit = "szabo";
 function money(number) {
@@ -19,6 +19,7 @@ function nearEqual(given, expected) {
 	return given >= expected - nearErrorValue
 		&& given <= expected + nearErrorValue;
 }
+
 function assertNearEqual(given, expected, message) {
 	var msg = "";
 	if (message != undefined) {
@@ -31,9 +32,9 @@ function assertNearEqual(given, expected, message) {
 
 let presaleAmount = 10;
 let maxTotalSupply = 100;
-let tokenPrice = money(170);
+let tokenPrice = money(300);
 
-contract('TestBCOToken', function(accounts) {
+contract('TestBLLNToken', function(accounts) {
 	let dividends;
 	let token;
 
@@ -43,16 +44,16 @@ contract('TestBCOToken', function(accounts) {
 	let acc3 = accounts[3];
 
 	beforeEach(async function () {
-		dividends = await BCODividends.new(presaleAmount, maxTotalSupply);
-		token = await BCOToken.new(dividends.address);
+		dividends = await BLLNDividends.new(maxTotalSupply);
+		token = await BLLNToken.new(dividends.address);
 		await dividends.setTokenAddress(token.address);
-		await token.mintPresale(presaleAmount, owner);
+		await dividends.mintPresale(presaleAmount, owner);
 	});
 
 	describe('token', function () {
 		it('should reject payments', async function() {
 			let paymentToTokenAddress = token.sendTransaction({value: tokenPrice, from: acc1});
-			assertThrows(paymentToTokenAddress, "Token is not rejecting payments.");
+			await assertThrows(paymentToTokenAddress, "Token is not rejecting payments.");
 		});
 	});
 
@@ -60,11 +61,6 @@ contract('TestBCOToken', function(accounts) {
 		it('should have zero token balance at start', async function() {
 			let tokenBalance = await token.balanceOf(acc1);
 			assert.equal(tokenBalance, 0);
-		});
-
-		it('should return sellable token amount', async function () {
-			let sellable = await dividends.getSellableTokenAmount();
-			assert.equal(sellable.toNumber(), (maxTotalSupply - presaleAmount));
 		});
 
 		it('should get bought tokens increasing in price', async function () {
@@ -262,8 +258,8 @@ contract('TestBCOToken', function(accounts) {
 			let _threeNextTokensFromAcc1 = {value: tokenPrice * 3, from: acc1};
 
 			//_then
-			let _expectedDividendBalanceAcc1 = Number(money(178.5));
-			let _expectedDividendBalanceAcc2 = Number(money(76.5));
+			let _expectedDividendBalanceAcc1 = Number(money(315));
+			let _expectedDividendBalanceAcc2 = Number(money(135));
 
 			// Initial token balance is empty
 			let tokenBalance1 = await token.balanceOf(acc1);

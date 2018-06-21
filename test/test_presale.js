@@ -1,5 +1,5 @@
-let BCOToken = artifacts.require('BCOToken');
-let BCODividends = artifacts.require('BCODividendTestable');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNDividends = artifacts.require('BLLNDividendTestable');
 
 let denominationUnit = "szabo";
 function money(number) {
@@ -9,6 +9,7 @@ function money(number) {
 let ownerAmount = 100;
 let presaleAmounts = [10, 20, 10, 30];
 let maxTotalSupply = 10000;
+let tokenPrice = money(300);
 
 
 function assertThrows(promise, message) {
@@ -30,51 +31,51 @@ contract('TestPresale', function(accounts) {
     let acc4 = accounts[4];
 
     beforeEach(async function() {
-        dividends = await BCODividends.new(ownerAmount, maxTotalSupply);
-		token = await BCOToken.new(dividends.address);
+        dividends = await BLLNDividends.new(maxTotalSupply);
+		token = await BLLNToken.new(dividends.address);
 		await dividends.setTokenAddress(token.address);
-		await token.mintPresale(ownerAmount, owner);
+		await dividends.mintPresale(ownerAmount, owner);
     });
 
     describe('presale', function() {
         it('only owner should be able to presale', async function() {
             let amount = 10;
 
-            let acc1MintPresale = token.mintPresale(10, acc1, {from: acc1});
-            let acc2MintPresale = token.mintPresale(10, acc2, {from: acc2});
-            assertThrows(acc1MintPresale, "Acc1 cannot mint presale");
-            assertThrows(acc2MintPresale, "Acc2 cannot mint presale");
+            let acc1MintPresale = dividends.mintPresale(10, acc1, {from: acc1});
+            let acc2MintPresale = dividends.mintPresale(10, acc2, {from: acc2});
+            await assertThrows(acc1MintPresale, "Acc1 cannot mint presale");
+            await assertThrows(acc2MintPresale, "Acc2 cannot mint presale");
 
-            let ok1 = await token.mintPresale(10, acc1, {from: owner});
+            let ok1 = await dividends.mintPresale(10, acc1, {from: owner});
 			assert.equal(ok1.receipt.status, '0x01');
 
-            let ok2 = await token.mintPresale(10, acc2, {from: owner});
+            let ok2 = await dividends.mintPresale(10, acc2, {from: owner});
             assert.equal(ok2.receipt.status, '0x01');
         });
 
         it('only owner should be able to stop', async function() {
-            let acc1FinishPresale = token.finishPresale({from: acc1});
-            let acc2FinishPresale = token.finishPresale({from: acc2});
-            assertThrows(acc1FinishPresale, "Acc1 cannot finish presale");
-            assertThrows(acc2FinishPresale, "Acc2 cannot finish presale");
+            let acc1FinishPresale = dividends.finishPresale({from: acc1});
+            let acc2FinishPresale = dividends.finishPresale({from: acc2});
+            await assertThrows(acc1FinishPresale, "Acc1 cannot finish presale");
+            await assertThrows(acc2FinishPresale, "Acc2 cannot finish presale");
 
-            let ok = await token.finishPresale({from: owner});
+            let ok = await dividends.finishPresale({from: owner});
             assert.equal(ok.receipt.status, '0x01');
         });
 
         it('should be unable to presale after finish', async function() {
-            let ok = await token.finishPresale({from: owner});
+            let ok = await dividends.finishPresale({from: owner});
             assert.equal(ok.receipt.status, '0x01');
 
-            let finishAgain = token.finishPresale({from: owner});
-            assertThrows(finishAgain, "Unable to finish twice");
+            let finishAgain = dividends.finishPresale({from: owner});
+            await assertThrows(finishAgain, "Unable to finish twice");
         });
     });
 
     describe('prebuyers', function() {
         beforeEach(async function() {
             for (var i = 1; i <= presaleAmounts.length; ++i) {
-                await token.mintPresale(presaleAmounts[i-1], accounts[i], {from: owner});
+                await dividends.mintPresale(presaleAmounts[i-1], accounts[i], {from: owner});
             }
         });
 
@@ -99,7 +100,7 @@ contract('TestPresale', function(accounts) {
         });
 
         it('should get correct dividend amount from public sale', async function() {
-            let _ether = money(170)*10;
+            let _ether = tokenPrice*10;
             let _ownerDividends = (_ether*100/170).toFixed();
             let _accDividends = [
                 (_ether*10/170).toFixed(),

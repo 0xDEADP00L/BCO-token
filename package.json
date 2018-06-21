@@ -1,7 +1,7 @@
 {
   "name": "test_token",
   "version": "1.0.0",
-  "description": "BCO token contract with tests",
+  "description": "BLLN token contract with tests",
   "main": "truffle.js",
   "directories": {
     "test": "test"

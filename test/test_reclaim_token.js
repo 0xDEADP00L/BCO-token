@@ -1,5 +1,5 @@
-var BCOToken = artifacts.require('BCOToken');
-var BCODividends = artifacts.require('BCODividendTestable');
+var BLLNToken = artifacts.require('BLLNToken');
+var BLLNDividends = artifacts.require('BLLNDividendTestable');
 
 let denominationUnit = "szabo";
 function money(number) {
@@ -8,7 +8,7 @@ function money(number) {
 
 let presaleAmount = 10;
 let maxTotalSupply = 100;
-let tokenPrice = money(170);
+let tokenPrice = money(300);
 
 contract ('Test token reclaim', function(accounts) {
     let dividends;
@@ -20,13 +20,13 @@ contract ('Test token reclaim', function(accounts) {
     let acc3 = accounts[3];
 
     beforeEach(async function () {
-		dividends = await BCODividends.new(presaleAmount, maxTotalSupply);
-		token = await BCOToken.new(dividends.address);
+		dividends = await BLLNDividends.new(maxTotalSupply);
+		token = await BLLNToken.new(dividends.address);
 		await dividends.setTokenAddress(token.address);
-		await token.mintPresale(presaleAmount, owner);
+		await dividends.mintPresale(presaleAmount, owner);
 	});
 
-    describe('Reclaim BCOToken', function() {
+    describe('Reclaim BLLNToken', function() {
         it('should reclaim token to acc1', async function() {
             let _tenTokensPrice = tokenPrice * 10;
             let _contractAddress = token.address;
@@ -37,14 +37,13 @@ contract ('Test token reclaim', function(accounts) {
 
             /// @dev initial balance of owner is 10
             let ownerBalance = await token.balanceOf(owner);
-            console.log("Owner balance is -> " + ownerBalance);
 
             /// @dev acc1 buy 10 tokens
             await dividends.buyToken({ value: _tenTokensPrice, from: acc1 });
             tokenBalance = await token.balanceOf(acc1);
             assert.equal(tokenBalance, 10);
 
-            /// @dev acc1 transfer 4 tokens to BCODividend address
+            /// @dev acc1 transfer 4 tokens to BLLNDividend address
             await token.transfer(_contractAddress, 4, { from: acc1 });
             tokenBalance = await token.balanceOf(acc1);
             let contractTokenBalance = await token.balanceOf(_contractAddress)

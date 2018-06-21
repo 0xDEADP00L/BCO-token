@@ -3,13 +3,19 @@ pragma solidity 0.4.24;
 import "./include/Ownable.sol";
 import "./include/SafeMath.sol";
 import "./include/CanReclaimToken.sol";
-import "./BCOToken.sol";
-import "./BCODividendInterface.sol";
+import "./BLLNToken.sol";
+import "./BLLNDividendInterface.sol";
 import "./Log.sol";
 
 
-contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
+contract BLLNDividend is Ownable, Log, BLLNDividendInterface, CanReclaimToken {
     using SafeMath for uint256;
+
+    event PresaleFinished();
+
+    event DividendsArrived(
+        uint256 newD_n
+    );
 
     struct UserHistory {
         uint256 lastD_n;
@@ -18,11 +24,11 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
 
     uint256 internal constant rounding = 10**18;
 
-    BCOToken public m_token;
+    BLLNToken public m_token;
+    bool public m_presaleFinished;
     uint256 public m_sharedDividendBalance;
-    uint256 private m_presaleTokenAmount;
     uint256 public m_maxTotalSupply;
-    uint256 public m_tokenPrice = 170 szabo; // 0.11$
+    uint256 public m_tokenPrice = 300 szabo; // 0.11$
     uint256 public m_tokenDiscountThreshold;
 
     uint256 public m_D_n;
@@ -30,11 +36,11 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
     mapping (address => uint256) public m_dividendBalances;
     mapping (address => UserHistory) public m_userHistories;
 
-    constructor(uint256 _presaleTokenAmount, uint256 _maxTotalSupply) public {
+    constructor(uint256 _maxTotalSupply) public {
         require(_maxTotalSupply > 0);
 
+        m_presaleFinished = false;
         owner = msg.sender;
-        m_presaleTokenAmount = _presaleTokenAmount;
         m_maxTotalSupply = _maxTotalSupply;
         m_tokenDiscountThreshold = 10**4;
     }
@@ -44,13 +50,18 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
         _;
     }
 
+    modifier onlyPresale() {
+        require(!m_presaleFinished);
+        _;
+    }
+
     function () external payable {
         buyTokens(msg.sender);
     }
 
     function setTokenAddress(address _tokenAddress) external onlyOwner {
         require(_tokenAddress != address(0));
-        m_token = BCOToken(_tokenAddress);
+        m_token = BLLNToken(_tokenAddress);
     }
 
     function setTokenDiscountThreshold(uint256 _discountThreshold) external onlyOwner {
@@ -58,11 +69,26 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
         m_tokenDiscountThreshold = _discountThreshold;
     }
 
+    function mintPresale(uint256 _presaleAmount, address _receiver) external onlyOwner onlyPresale returns (bool) {
+        require(_presaleAmount > 0);
+        require(_receiver != address(0));
+        require(address(m_token) != address(0));
+        require(m_token.mint(_receiver, _presaleAmount));
+        return true;
+    }
+
+    function finishPresale() external onlyOwner onlyPresale returns (bool) {
+        m_presaleFinished = true;
+        emit PresaleFinished();
+        return true;
+    }
+
     function buyToken() external payable {
         buyTokens(msg.sender);
     }
 
     function withdraw(uint256 _amount) external {
+        require(_amount != 0);
         uint256 userBalance = m_dividendBalances[msg.sender].add(getDividendAmount(msg.sender));
         require(userBalance >= _amount);
 
@@ -70,6 +96,18 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
 
         m_dividendBalances[msg.sender] = userBalance.sub(_amount);
         msg.sender.transfer(_amount);
+    }
+
+    function withdrawTo(address _to, uint256 _amount) external {
+        require(_amount != 0);
+        require(_to != address(0));
+        uint256 userBalance = m_dividendBalances[msg.sender].add(getDividendAmount(msg.sender));
+        require(userBalance >= _amount);
+
+        takeDividends(msg.sender);
+
+        m_dividendBalances[msg.sender] = userBalance.sub(_amount);
+        _to.transfer(_amount);
     }
 
     function updateDividendBalance(uint256 _totalSupply, address _address, uint256 _tokensAmount) external onlyToken {
@@ -95,6 +133,8 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
         require(msg.value > 0);
         m_sharedDividendBalance = m_sharedDividendBalance.add(msg.value);
         m_D_n = m_D_n.add(msg.value.mul(rounding).div(m_totalTokens));
+
+        emit DividendsArrived(m_D_n);
     }
 
     function getDividendBalance(address _address) external view returns (uint256) {
@@ -129,10 +169,7 @@ contract BCODividend is Ownable, Log, BCODividendInterface, CanReclaimToken {
         m_dividendBalances[_receiver] = m_dividendBalances[_receiver].add(change);
 
         require(m_token.mint(_receiver, tokens));
-    }
-
-    function getSellableTokenAmount() public view returns (uint256) {
-        return m_maxTotalSupply.sub(m_presaleTokenAmount);
+        emit DividendsArrived(m_D_n);
     }
 
     function calculateTokensFrom(uint256 _value, uint256 _totalSupply) public view returns (uint256, uint256) {

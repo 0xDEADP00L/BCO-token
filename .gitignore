@@ -3,3 +3,6 @@ build/*
 .idea
 node_modules/*
 coverage/*
+verify/*
+TestMigrations/*
+coverage.json

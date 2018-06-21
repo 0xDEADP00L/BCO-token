@@ -1,13 +1,13 @@
 pragma solidity 0.4.24;
 
-import {BCODividend} from "../BCODividend.sol";
+import {BLLNDividend} from "../BLLNDividend.sol";
 
 
-contract BCODividendTestable is BCODividend {
+contract BLLNDividendTestable is BLLNDividend {
     uint256 public changeCommon;
 
-    constructor(uint256 _presaleTokenAmount, uint256 _maxTotalSupply) public
-        BCODividend(_presaleTokenAmount, _maxTotalSupply) { }
+    constructor(uint256 _maxTotalSupply) public
+        BLLNDividend(_maxTotalSupply) { }
 
     function buyToken() external payable {
         buyTokens(msg.sender);

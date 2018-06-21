@@ -1,5 +1,7 @@
 var Log = artifacts.require('Log');
 
+var BigNumber = require('bignumber.js');
+
 function num(x) {
     return web3.toWei(x, 'ether');
 }
@@ -17,6 +19,13 @@ function assertNearEqual(given, expected, message) {
 		msg = given + " should be nearly equal to " + expected;
 	}
 	assert.ok(nearEqual(given, expected), msg);
+}
+function assertThrows(promise, message) {
+    return promise.then(() => {
+        assert.isNotOk(true, message)
+    }).catch((e) => {
+        assert.include(e.message, 'VM Exception')
+    })
 }
 
 contract('TestLog', function(accounts) {
@@ -62,6 +71,16 @@ contract('TestLog', function(accounts) {
                 let ln = await log.ln(num(_nums[i]));
                 assertNearEqual(ln.toNumber(), num(_numlns[i]), "ln(" + _nums[i] + ") != " +  _numlns[i]);
             }
+        });
+
+        it('calc ln limits', async function() {
+            let low = num(0.0000000009);
+            let big = -1;
+
+            let failLow = log.ln(low);
+            await assertThrows(failLow, "Low numbers should be rejected");
+            let failBig = log.ln(big);
+            await assertThrows(failBig, "Big numbers should be rejected");
         });
     });
 });
