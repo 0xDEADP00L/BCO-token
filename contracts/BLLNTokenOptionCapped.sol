@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity 0.4.25;
 
 import "./BLLNTokenOptionBase.sol";
 
@@ -13,7 +13,7 @@ contract BLLNTokenOptionCapped is BLLNTokenOptionBase {
     }
 
     function canTransferTokens() public view returns (bool) {
-        uint currentTotalSupply = m_token.totalSupply();
+        uint currentTotalSupply = token.totalSupply();
         return currentTotalSupply >= maxTotalSupply;
     }
 }

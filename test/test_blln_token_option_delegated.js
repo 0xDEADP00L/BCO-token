@@ -1,23 +1,13 @@
-var BLLNToken = artifacts.require('BLLNToken');
-var BLLNDividends = artifacts.require('BLLNDividend');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNTokensaleController = artifacts.require('BLLNTokensaleController');
+let BLLNDividends = artifacts.require('BLLNDividend');
 var BLLNTokenOptionDelegated = artifacts.require('BLLNTokenOptionDelegated');
 
-let denominationUnit = "szabo";
-function money(number) {
-	return web3.toWei(number, denominationUnit);
-}
-
-function lastBlockTime() {
-    return web3.eth.getBlock('latest').timestamp;
-}
-
-function assertThrows(promise, message) {
-    return promise.then(() => {
-        assert.isNotOk(true, message)
-    }).catch((e) => {
-        assert.include(e.message, 'VM Exception')
-    })
-}
+var utils = require("../test_utils/utils.js");
+var money = utils.money;
+var BN = utils.BN;
+var lastBlockTime = utils.lastBlockTime;
+var assertThrows = utils.assertThrows;
 
 let presaleAmount = 10;
 let maxTotalSupply = 100;
@@ -28,6 +18,7 @@ let closingTime;
 contract('Test BLLNTokenOptionDelegated', function(acc) {
     let dividends;
     let token;
+    let tokensaleController;
     let tokenOptionDelegated;
 
     let owner = acc[0];
@@ -36,22 +27,27 @@ contract('Test BLLNTokenOptionDelegated', function(acc) {
     let newDelegatedAddress = acc[0]
 
     /// @dev configure presale duration
-    let lastBlock = lastBlockTime();
     let presaleDuration = 30
-    closingTime = lastBlock + presaleDuration
-
     beforeEach(async function() {
-        dividends = await BLLNDividends.new(maxTotalSupply);
-        token = await BLLNToken.new(dividends.address);
-        await dividends.setTokenAddress(token.address);
-        await dividends.mintPresale(presaleAmount, owner);
+        let lastBlock = await lastBlockTime();
+        closingTime = lastBlock + presaleDuration
 
-        tokenOptionDelegated = await BLLNTokenOptionDelegated.new(dividends.address, token.address, closingTime, delegatedAddress, { from: optionOwner });
+        dividends = await BLLNDividends.new();
+        token = await BLLNToken.new(dividends.address);
+        tokensaleController = await BLLNTokensaleController.new(maxTotalSupply, dividends.address, token.address)
+
+        await dividends.setTokenAddress(token.address);
+
+        tokenOptionDelegated = await BLLNTokenOptionDelegated.new(dividends.address,
+                                                                  token.address,
+                                                                  closingTime,
+                                                                  delegatedAddress,
+                                                                  { from: optionOwner });
     });
 
     describe('Delegate', function() {
         it('should return correct delegated address', async function() {
-            let _delegatedAddress = await tokenOptionDelegated.m_delegateAddress();
+            let _delegatedAddress = await tokenOptionDelegated.delegateAddress();
             assert.equal(delegatedAddress, _delegatedAddress);
         });
 
@@ -60,7 +56,7 @@ contract('Test BLLNTokenOptionDelegated', function(acc) {
             /// @dev change delegated address
             await tokenOptionDelegated.changeDelegate(newDelegatedAddress, { from: delegatedAddress });
 
-            let _newDelegatedAddress = await tokenOptionDelegated.m_delegateAddress();
+            let _newDelegatedAddress = await tokenOptionDelegated.delegateAddress();
             assert.equal(newDelegatedAddress, _newDelegatedAddress);
         });
 
@@ -70,7 +66,7 @@ contract('Test BLLNTokenOptionDelegated', function(acc) {
         });
 
         it('should fail withdrawDividends', async function() {
-            let fail = tokenOptionDelegated.withdrawDividends(1000, { from: owner });
+            let fail = tokenOptionDelegated.withdrawDividends({ from: owner });
             await assertThrows(fail, 'only address delegate can withdraw dividends');
         });
     });

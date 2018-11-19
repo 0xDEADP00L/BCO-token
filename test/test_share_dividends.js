@@ -1,13 +1,17 @@
 let BLLNToken = artifacts.require('BLLNToken');
-let BLLNDividends = artifacts.require('BLLNDividendTestable');
+let BLLNTokensaleController = artifacts.require('BLLNTokensaleController');
+let BLLNTokensaleBasic = artifacts.require('BLLNTokensaleBasic');
+let BLLNDividends = artifacts.require('BLLNDividend');
 
-let denominationUnit = "szabo";
-function money(number) {
-	return web3.toWei(number, denominationUnit);
-}
+var utils = require("../test_utils/utils.js");
+var money = utils.money;
+var BN = utils.BN;
+var lastBlockTime = utils.lastBlockTime;
+var assertThrows = utils.assertThrows;
 
 let presaleAmount = 10;
 let maxTotalSupply = 10000;
+let tokenPrice = money(300);
 
 let nearErrorValue = 1;
 function nearEqual(given, expected) {
@@ -27,6 +31,8 @@ function assertNearEqual(given, expected, message) {
 contract('TestShareDividends', function(accounts) {
     let dividends;
     let token;
+	let tokensaleController;
+	let tokensale;
 
 	let owner = accounts[0];
     let acc1 = accounts[1];
@@ -34,17 +40,22 @@ contract('TestShareDividends', function(accounts) {
 	let acc3 = accounts[3];
 
     beforeEach(async function() {
-		dividends = await BLLNDividends.new(maxTotalSupply);
-		token = await BLLNToken.new(dividends.address);
-		await dividends.setTokenAddress(token.address);
-		await dividends.mintPresale(presaleAmount, owner);
+		dividends = await BLLNDividends.new();
+        token = await BLLNToken.new(dividends.address);
+        tokensaleController = await BLLNTokensaleController.new(maxTotalSupply, dividends.address, token.address)
+        tokensale = await BLLNTokensaleBasic.new(tokensaleController.address, tokenPrice);
+
+        await dividends.setTokenAddress(token.address);
+        await token.setTokensaleControllerAddress(tokensaleController.address)
+
+        await tokensaleController.mintPresale(presaleAmount, owner);
+        await tokensaleController.addAddressToWhitelist(tokensale.address);
     });
 
     describe('Share dividends', function() {
         it('should share dividends from company', async function() {
             ///@test _given
-			let tokenPrice = money(300);
-			let _shareEthersOwner = {value: money(100), from: owner};
+			let shareAmount = money(100);
 
 			///@test _then
 			let _expectedDividendBalanceAcc0 = Number(tokenPrice * (10*10/10 + 5*10/20 + 5*10/25 + 30*10/30) + money(100)*10/60).toFixed();
@@ -63,19 +74,19 @@ contract('TestShareDividends', function(accounts) {
 			assert.equal(tokenBalance3.toNumber(), 0);
 
 			///@dev acc1 buy 10 tokens
-			await dividends.buyToken({value: tokenPrice * 10, from: acc1});
+			await tokensale.sendTransaction({value: tokenPrice * 10, from: acc1});
 			tokenBalance1 = await token.balanceOf(acc1);
 			assert.equal(tokenBalance1.toNumber(), 10);
 
 			///@dev acc2 buy 10 tokens by parts (5 and 5)
-			await dividends.buyToken({value: tokenPrice * 5, from: acc2});
+			await tokensale.sendTransaction({value: tokenPrice * 5, from: acc2});
 			tokenBalance2 = await token.balanceOf(acc2);
 			assert.equal(tokenBalance2.toNumber(), 5);
 
 			dividendBalance = await dividends.getDividendBalance(acc2)
 			assert.equal(dividendBalance.toNumber(), 0);
 
-			await dividends.buyToken({value: tokenPrice * 5, from: acc2});
+			await tokensale.sendTransaction({value: tokenPrice * 5, from: acc2});
 			tokenBalance2 = await token.balanceOf(acc2);
 			assert.equal(tokenBalance2.toNumber(), 10);
 
@@ -83,12 +94,12 @@ contract('TestShareDividends', function(accounts) {
 			assert.equal(dividendBalance.toNumber(), tokenPrice);
 
 			///@dev acc3 buy 30 tokens
-			await dividends.buyToken({value: tokenPrice * 30, from: acc3});
+			await tokensale.sendTransaction({value: tokenPrice * 30, from: acc3});
 			tokenBalance3 = await token.balanceOf(acc3);
 			assert.equal(tokenBalance3.toNumber(), 30);
 
 			///@dev share dividends
-			await dividends.shareDividends(_shareEthersOwner);
+			await dividends.shareDividends({value: shareAmount, from: owner});
 
 			dividendBalance = await dividends.getDividendBalance(owner);
 			assertNearEqual(dividendBalance.toNumber(), _expectedDividendBalanceAcc0, "Account 0 dividend balance");

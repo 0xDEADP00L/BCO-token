@@ -1,14 +1,12 @@
-pragma solidity 0.4.24;
+pragma solidity 0.4.25;
 
 import "./include/Ownable.sol";
 import "./include/SafeMath.sol";
 import "./include/CanReclaimToken.sol";
-import "./BLLNToken.sol";
 import "./BLLNDividendInterface.sol";
-import "./Log.sol";
 
 
-contract BLLNDividend is Ownable, Log, BLLNDividendInterface, CanReclaimToken {
+contract BLLNDividend is Ownable, BLLNDividendInterface, CanReclaimToken {
     using SafeMath for uint256;
 
     event PresaleFinished();
@@ -22,209 +20,115 @@ contract BLLNDividend is Ownable, Log, BLLNDividendInterface, CanReclaimToken {
         uint256 tokens;
     }
 
-    uint256 internal constant rounding = 10**18;
+    uint256 internal constant ROUNDING = 10**18;
 
-    BLLNToken public m_token;
-    bool public m_presaleFinished;
-    uint256 public m_sharedDividendBalance;
-    uint256 public m_maxTotalSupply;
-    uint256 public m_tokenPrice = 300 szabo; // 0.11$
-    uint256 public m_tokenDiscountThreshold;
+    address public token;
 
-    uint256 public m_D_n;
-    uint256 public m_totalTokens;
-    mapping (address => uint256) public m_dividendBalances;
-    mapping (address => UserHistory) public m_userHistories;
+    uint256 public sharedDividendBalance;
 
-    constructor(uint256 _maxTotalSupply) public {
-        require(_maxTotalSupply > 0);
+    uint256 public D_n;
+    uint256 public totalTokens;
+    mapping (address => uint256) public dividendBalances;
+    mapping (address => UserHistory) public userHistories;
 
-        m_presaleFinished = false;
-        owner = msg.sender;
-        m_maxTotalSupply = _maxTotalSupply;
-        m_tokenDiscountThreshold = 10**4;
-    }
+    constructor() public { }
 
     modifier onlyToken() {
-        require(msg.sender == address(m_token));
+        require(msg.sender == address(token));
         _;
     }
 
-    modifier onlyPresale() {
-        require(!m_presaleFinished);
-        _;
-    }
-
-    function () external payable {
-        buyTokens(msg.sender);
+    function () public {
+        _withdraw(msg.sender);
     }
 
     function setTokenAddress(address _tokenAddress) external onlyOwner {
         require(_tokenAddress != address(0));
-        m_token = BLLNToken(_tokenAddress);
+        token = _tokenAddress;
     }
 
-    function setTokenDiscountThreshold(uint256 _discountThreshold) external onlyOwner {
-        require(_discountThreshold > 0);
-        m_tokenDiscountThreshold = _discountThreshold;
+    function withdraw() external {
+        _withdraw(msg.sender);
     }
 
-    function mintPresale(uint256 _presaleAmount, address _receiver) external onlyOwner onlyPresale returns (bool) {
-        require(_presaleAmount > 0);
-        require(_receiver != address(0));
-        require(address(m_token) != address(0));
-        require(m_token.mint(_receiver, _presaleAmount));
+    function withdrawTo(address _to) external {
+        _withdrawTo(msg.sender, _to);
+    }
+
+    function tokensMinted(address _address, uint256 _tokensAmount) external onlyToken {
+        totalTokens = totalTokens.add(_tokensAmount);
+
+        _takeDividends(_address);
+        userHistories[_address].tokens = userHistories[_address].tokens.add(_tokensAmount);
+    }
+
+    function tokensTransferred(address _from, address _to, uint256 _amount) external onlyToken returns (bool) {
+        _takeDividends(_from);
+        _takeDividends(_to);
+
+        userHistories[_from].tokens = userHistories[_from].tokens.sub(_amount);
+        userHistories[_to].tokens = userHistories[_to].tokens.add(_amount);
         return true;
     }
 
-    function finishPresale() external onlyOwner onlyPresale returns (bool) {
-        m_presaleFinished = true;
-        emit PresaleFinished();
-        return true;
-    }
-
-    function buyToken() external payable {
-        buyTokens(msg.sender);
-    }
-
-    function withdraw(uint256 _amount) external {
-        require(_amount != 0);
-        uint256 userBalance = m_dividendBalances[msg.sender].add(getDividendAmount(msg.sender));
-        require(userBalance >= _amount);
-
-        takeDividends(msg.sender);
-
-        m_dividendBalances[msg.sender] = userBalance.sub(_amount);
-        msg.sender.transfer(_amount);
-    }
-
-    function withdrawTo(address _to, uint256 _amount) external {
-        require(_amount != 0);
-        require(_to != address(0));
-        uint256 userBalance = m_dividendBalances[msg.sender].add(getDividendAmount(msg.sender));
-        require(userBalance >= _amount);
-
-        takeDividends(msg.sender);
-
-        m_dividendBalances[msg.sender] = userBalance.sub(_amount);
-        _to.transfer(_amount);
-    }
-
-    function updateDividendBalance(uint256 _totalSupply, address _address, uint256 _tokensAmount) external onlyToken {
-        m_totalTokens = m_totalTokens.add(_tokensAmount);
-        require(m_totalTokens == _totalSupply);
-
-        takeDividends(_address);
-        m_userHistories[_address].tokens = m_userHistories[_address].tokens.add(_tokensAmount);
-    }
-
-    function transferTokens(address _from, address _to, uint256 _amount) external onlyToken returns (bool) {
-        require(_from != address(0));
-        require(_to != address(0));
-        takeDividends(_from);
-        takeDividends(_to);
-
-        m_userHistories[_from].tokens = m_userHistories[_from].tokens.sub(_amount);
-        m_userHistories[_to].tokens = m_userHistories[_to].tokens.add(_amount);
-        return true;
-    }
-
-    function shareDividends() external onlyOwner payable {
+    function shareDividends() external payable {
         require(msg.value > 0);
-        m_sharedDividendBalance = m_sharedDividendBalance.add(msg.value);
-        m_D_n = m_D_n.add(msg.value.mul(rounding).div(m_totalTokens));
+        sharedDividendBalance = sharedDividendBalance.add(msg.value);
+        D_n = D_n.add(msg.value.mul(ROUNDING).div(totalTokens));
 
-        emit DividendsArrived(m_D_n);
+        emit DividendsArrived(D_n);
+    }
+
+    function addToDividendBalance(address _address) external payable {
+        dividendBalances[_address] = dividendBalances[_address].add(msg.value);
     }
 
     function getDividendBalance(address _address) external view returns (uint256) {
-        return m_dividendBalances[_address].add(getDividendAmount(_address));
+        return dividendBalances[_address].add(calculateDividendAmount(_address));
     }
 
-    function getDividendAmount(address _address) public view returns (uint256) {
-        UserHistory memory history = m_userHistories[_address];
+    function calculateDividendAmount(address _address) public view returns (uint256) {
+        UserHistory storage history = userHistories[_address];
         if (history.tokens == 0) {
             return 0;
         }
+        uint256 diff_D_n = D_n.sub(history.lastD_n);
+        if (diff_D_n == 0) {
+            return 0;
+        }
 
-        uint256 dividends = m_D_n.sub(history.lastD_n).mul(history.tokens);
-
-        dividends = dividends.div(rounding);
-
-        return dividends;
-    }
-
-    function buyTokens(address _receiver) public payable {
-        require(msg.value > 0);
-
-        uint256 totalSupply = m_token.totalSupply();
-        uint256 tokens;
-        uint256 change;
-        (tokens, change) = calculateTokensFrom(msg.value, totalSupply);
-        uint256 tokenPrice = msg.value.sub(change);
-
-        m_sharedDividendBalance = m_sharedDividendBalance.add(tokenPrice);
-
-        m_D_n = m_D_n.add(tokenPrice.mul(rounding).div(m_totalTokens));
-        m_dividendBalances[_receiver] = m_dividendBalances[_receiver].add(change);
-
-        require(m_token.mint(_receiver, tokens));
-        emit DividendsArrived(m_D_n);
-    }
-
-    function calculateTokensFrom(uint256 _value, uint256 _totalSupply) public view returns (uint256, uint256) {
-        require(_value >= m_tokenPrice);
-        return calculateTokensAmountToSale(_value, _totalSupply);
-    }
-
-    function priceFor(uint256 _tokenAmount) public view returns (uint256) {
-        uint256 price = m_tokenPrice.mul(_tokenAmount);
-        return price;
-    }
-
-    function priceWithDiscount(uint256 _tokenAmount, uint256 _totalTokens) public view returns (uint256) {
-        uint256 s = _totalTokens.add(_tokenAmount).mul(rounding).div(_totalTokens);
-        int256 log = ln(s);
-        return m_tokenPrice.mul(_totalTokens).mul(uint256(log)).div(rounding);
-    }
-
-    function tokensAmountFrom(uint256 _value) public view returns (uint256) {
-        uint256 tokensAmount = _value.div(m_tokenPrice);
-        return tokensAmount;
+        return diff_D_n.mul(history.tokens).div(ROUNDING);
     }
 
     // MARK: Private functions
-    function takeDividends(address _user) private {
-        uint256 userAmount = getDividendAmount(_user);
-        m_userHistories[_user].lastD_n = m_D_n;
+    function _withdraw(address _address) private {
+        _takeDividends(_address);
+
+        uint256 userBalance = dividendBalances[_address];
+        require(userBalance > 0);
+
+        dividendBalances[_address] = 0;
+        _address.transfer(userBalance);
+    }
+
+    function _withdrawTo(address _from, address _to) private {
+        require(_to != address(0));
+
+        _takeDividends(_from);
+        uint256 userBalance = dividendBalances[_from];
+        require(userBalance > 0);
+
+        dividendBalances[_from] = 0;
+        _to.transfer(userBalance);
+    }
+
+    function _takeDividends(address _user) private {
+        uint256 userAmount = calculateDividendAmount(_user);
+        userHistories[_user].lastD_n = D_n;
         if (userAmount == 0) {
             return;
         }
-        m_dividendBalances[_user] = m_dividendBalances[_user].add(userAmount);
-        m_sharedDividendBalance = m_sharedDividendBalance.sub(userAmount);
-    }
-
-    function calculateTokensAmountToSale(uint256 _value, uint256 _totalSupply) private view returns (uint256, uint256) {
-        uint256 maxTotalSupply = m_maxTotalSupply;
-        require(_totalSupply < maxTotalSupply);
-
-        uint256 remainingTokens = maxTotalSupply.sub(_totalSupply);
-        uint256 remainingPrice = priceFor(remainingTokens);
-
-        if (remainingPrice < _value) {
-            return (remainingTokens, _value - remainingPrice);
-        }
-
-        uint256 approxTokens = tokensAmountFrom(_value);
-        uint256 approxPrice;
-
-        if (approxTokens >= m_tokenDiscountThreshold) {
-            approxPrice = priceWithDiscount(approxTokens, _totalSupply);
-        } else {
-            approxPrice = priceFor(approxTokens);
-        }
-
-        uint256 change = _value.sub(approxPrice);
-        return (approxTokens, change);
+        dividendBalances[_user] = dividendBalances[_user].add(userAmount);
+        sharedDividendBalance = sharedDividendBalance.sub(userAmount);
     }
 }

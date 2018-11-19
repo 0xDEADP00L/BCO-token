@@ -4,7 +4,8 @@ const { exec } = require('child_process');
 let fs = require('fs');
 
 function num(x) {
-    return web3.toWei(x, 'ether');
+    let bnX = web3.utils.toBN(x);
+    return web3.utils.toWei(bnX, 'ether');
 }
 
 let nearErrorValue = 1000;

@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity 0.4.25;
 
 import "./BLLNTokenOptionDelegated.sol";
 
@@ -12,14 +12,14 @@ contract BLLNTokenOptionG3 is BLLNTokenOptionDelegated {
         g3Address = _g3Address;
     }
 
-    function transferTokens(address _to, uint _amount) public {
-        revert();
+    function transferTokens(address /* _to */, uint /* _amount */) public {
+        revert("Use transferToken(uint)");
     }
 
     function transferToken(uint _amount) public onlyOwner {
         require(canTransferTokens());
         require(g3Address != address(0));
         require(_amount != 0);
-        m_token.transfer(g3Address, _amount);
+        token.transfer(g3Address, _amount);
     }
 }

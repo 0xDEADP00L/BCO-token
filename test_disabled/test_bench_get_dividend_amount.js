@@ -3,7 +3,7 @@ let BLLNDividends = artifacts.require('BLLNDividendTestable');
 
 let denominationUnit = "szabo";
 function money(number) {
-	return web3.toWei(number, denominationUnit);
+	return web3.utils.toWei(number, denominationUnit);
 }
 
 let presaleAmount = 90*(10**6);

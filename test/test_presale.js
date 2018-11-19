@@ -1,28 +1,24 @@
 let BLLNToken = artifacts.require('BLLNToken');
-let BLLNDividends = artifacts.require('BLLNDividendTestable');
+let BLLNTokensaleController = artifacts.require('BLLNTokensaleController');
+let BLLNTokensaleBasic = artifacts.require('BLLNTokensaleBasic');
+let BLLNDividends = artifacts.require('BLLNDividend');
 
-let denominationUnit = "szabo";
-function money(number) {
-	return web3.toWei(number, denominationUnit);
-}
+var utils = require("../test_utils/utils.js");
+var money = utils.money;
+var BN = utils.BN;
+var lastBlockTime = utils.lastBlockTime;
+var assertThrows = utils.assertThrows;
 
 let ownerAmount = 100;
 let presaleAmounts = [10, 20, 10, 30];
 let maxTotalSupply = 10000;
 let tokenPrice = money(300);
 
-
-function assertThrows(promise, message) {
-    return promise.then(() => {
-        assert.isNotOk(true, message)
-    }).catch((e) => {
-        assert.include(e.message, 'VM Exception')
-    })
-}
-
 contract('TestPresale', function(accounts) {
     let dividends;
     let token;
+    let tokensaleController;
+    let tokensale;
 
 	let owner = accounts[0];
     let acc1 = accounts[1];
@@ -31,43 +27,49 @@ contract('TestPresale', function(accounts) {
     let acc4 = accounts[4];
 
     beforeEach(async function() {
-        dividends = await BLLNDividends.new(maxTotalSupply);
-		token = await BLLNToken.new(dividends.address);
-		await dividends.setTokenAddress(token.address);
-		await dividends.mintPresale(ownerAmount, owner);
+    	dividends = await BLLNDividends.new();
+        token = await BLLNToken.new(dividends.address);
+        tokensaleController = await BLLNTokensaleController.new(maxTotalSupply, dividends.address, token.address)
+        tokensale = await BLLNTokensaleBasic.new(tokensaleController.address, tokenPrice);
+
+        await dividends.setTokenAddress(token.address);
+        await token.setTokensaleControllerAddress(tokensaleController.address)
+
+        await tokensaleController.mintPresale(ownerAmount, owner);
+        await tokensaleController.addAddressToWhitelist(tokensale.address);
     });
 
     describe('presale', function() {
         it('only owner should be able to presale', async function() {
             let amount = 10;
 
-            let acc1MintPresale = dividends.mintPresale(10, acc1, {from: acc1});
-            let acc2MintPresale = dividends.mintPresale(10, acc2, {from: acc2});
+            let acc1MintPresale = tokensaleController.mintPresale(10, acc1, {from: acc1});
+            let acc2MintPresale = tokensaleController.mintPresale(10, acc2, {from: acc2});
             await assertThrows(acc1MintPresale, "Acc1 cannot mint presale");
             await assertThrows(acc2MintPresale, "Acc2 cannot mint presale");
 
-            let ok1 = await dividends.mintPresale(10, acc1, {from: owner});
+            let ok1 = await tokensaleController.mintPresale(10, acc1, {from: owner});
 			assert.equal(ok1.receipt.status, '0x01');
 
-            let ok2 = await dividends.mintPresale(10, acc2, {from: owner});
+            let ok2 = await tokensaleController.mintPresale(10, acc2, {from: owner});
             assert.equal(ok2.receipt.status, '0x01');
         });
 
         it('only owner should be able to stop', async function() {
-            let acc1FinishPresale = dividends.finishPresale({from: acc1});
-            let acc2FinishPresale = dividends.finishPresale({from: acc2});
+            let acc1FinishPresale = tokensaleController.finishPresale({from: acc1});
+            let acc2FinishPresale = tokensaleController.finishPresale({from: acc2});
             await assertThrows(acc1FinishPresale, "Acc1 cannot finish presale");
             await assertThrows(acc2FinishPresale, "Acc2 cannot finish presale");
 
-            let ok = await dividends.finishPresale({from: owner});
+            let ok = await tokensaleController.finishPresale({from: owner});
             assert.equal(ok.receipt.status, '0x01');
         });
 
         it('should be unable to presale after finish', async function() {
-            let ok = await dividends.finishPresale({from: owner});
+            let ok = await tokensaleController.finishPresale({from: owner});
             assert.equal(ok.receipt.status, '0x01');
 
-            let finishAgain = dividends.finishPresale({from: owner});
+            let finishAgain = tokensaleController.finishPresale({from: owner});
             await assertThrows(finishAgain, "Unable to finish twice");
         });
     });
@@ -75,7 +77,7 @@ contract('TestPresale', function(accounts) {
     describe('prebuyers', function() {
         beforeEach(async function() {
             for (var i = 1; i <= presaleAmounts.length; ++i) {
-                await dividends.mintPresale(presaleAmounts[i-1], accounts[i], {from: owner});
+                await tokensaleController.mintPresale(presaleAmounts[i-1], accounts[i], {from: owner});
             }
         });
 
@@ -109,7 +111,7 @@ contract('TestPresale', function(accounts) {
                 (_ether*30/170).toFixed()
             ];
 
-            await dividends.buyToken({value: _ether, from: accounts[5]});
+            await tokensale.sendTransaction({value: _ether, from: accounts[5]});
 
             let ownerBalance = await dividends.getDividendBalance(owner);
             assert.equal(ownerBalance.toNumber(), _ownerDividends);

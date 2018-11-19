@@ -1,16 +1,24 @@
-var BLLNToken = artifacts.require('BLLNToken');
-var BLLNDividends = artifacts.require('BLLNDividend');
-var BLLNTokenOption = artifacts.require('BLLNTokenOptionBase');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNTokensaleController = artifacts.require('BLLNTokensaleController');
+let BLLNTokensaleBasic = artifacts.require('BLLNTokensaleBasic');
+let BLLNDividends = artifacts.require('BLLNDividend');
+let BLLNTokenOption = artifacts.require('BLLNTokenOptionBase');
 
+var utils = require("../test_utils/utils.js");
 let denominationUnit = "szabo";
-function money(number) {
-	return web3.toWei(number, denominationUnit);
-}
+var money = utils.money;
+var BN = utils.BN;
+var lastBlockTime = utils.lastBlockTime;
+var assertThrows = utils.assertThrows;
 
-let nearErrorValue = 1;
-function nearEqual(given, expected) {
-	return given >= expected - nearErrorValue
-		&& given <= expected + nearErrorValue;
+function assertNearEqual(given, expected, message) {
+	var msg = "";
+	if (message != undefined) {
+		msg = message + ": " + given + " should be nearly equal to " + expected;
+	} else {
+		msg = given + " should be nearly equal to " + expected;
+	}
+	assert.ok(nearEqual(given, expected), msg);
 }
 
 let presaleAmount = 10;
@@ -21,16 +29,25 @@ let optionOwner;
 contract('Test BLLNTokenOptionBase', function(accounts) {
     let dividends;
     let token;
+	let tokensaleController;
+	let tokensale;
     let tokenOption;
 
     let owner = accounts[0];
     let optionOwner = accounts[1];
 
     beforeEach(async function() {
-        dividends = await BLLNDividends.new(maxTotalSupply);
-		token = await BLLNToken.new(dividends.address);
-		await dividends.setTokenAddress(token.address);
-		await dividends.mintPresale(presaleAmount, owner);
+		dividends = await BLLNDividends.new();
+        token = await BLLNToken.new(dividends.address);
+        tokensaleController = await BLLNTokensaleController.new(maxTotalSupply, dividends.address, token.address)
+        tokensale = await BLLNTokensaleBasic.new(tokensaleController.address, tokenPrice);
+
+        await dividends.setTokenAddress(token.address);
+        await token.setTokensaleControllerAddress(tokensaleController.address)
+
+        await tokensaleController.mintPresale(presaleAmount, owner);
+        await tokensaleController.addAddressToWhitelist(tokensale.address);
+
         tokenOption = await BLLNTokenOption.new(dividends.address, token.address, { from: optionOwner });
     });
 
@@ -89,7 +106,7 @@ contract('Test BLLNTokenOptionBase', function(accounts) {
             assert.equal(dividendBalanceOption.toNumber(), 0);
 
             /// @dev buy 10 tokens
-            await dividends.buyToken({value: _tenTokensPrice, from: _randomAccount})
+            await tokensale.sendTransaction({value: _tenTokensPrice, from: _randomAccount})
             dividendBalanceOption = await tokenOption.getDividendBalance();
             assert.equal(dividendBalanceOption.toNumber(), 1500000000000000);
         });
@@ -137,22 +154,23 @@ contract('Test BLLNTokenOptionBase', function(accounts) {
             assert.equal(tokenBalanceOption.toNumber(), _tokensToTransfer);
 
             /// @dev buy 10 tokens
-            await dividends.buyToken({value: _tenTokensPrice, from: _randomAccount})
+            await tokensale.sendTransaction({value: _tenTokensPrice, from: _randomAccount})
             dividendBalanceOption = await tokenOption.getDividendBalance();
-            assert.equal(dividendBalanceOption.toNumber(), 1500000000000000);
+			let expectedDividendBalance = _tenTokensPrice/2;
+            assert.equal(dividendBalanceOption.toNumber(), expectedDividendBalance);
 
             /// @dev withdraw from option
-            let optionOwnerWeiBalanceBeforeWithdraw = web3.eth.getBalance(optionOwner);
-            let balanceBeforeInEth = web3.fromWei(optionOwnerWeiBalanceBeforeWithdraw.toNumber(), denominationUnit);
+            let balanceBefore = BN(await web3.eth.getBalance(optionOwner));
+            let hash = await tokenOption.withdrawDividends({ from: optionOwner });
 
-            await tokenOption.withdrawDividends(50000000000000, { from: optionOwner });
+			let balanceAfter = BN(await web3.eth.getBalance(optionOwner));
+            let tx = await web3.eth.getTransaction(hash.receipt.transactionHash);
+			let gasCost = BN(tx.gasPrice).mul(BN(hash.receipt.gasUsed));
+			let withdrawAmount = balanceAfter.sub(balanceBefore).add(gasCost);
 
-            let optionOwnerWeiBalance = web3.eth.getBalance(optionOwner);
-            let balanceAfterInEth =  web3.fromWei(optionOwnerWeiBalance.toNumber(), denominationUnit);
-            let withdrawAmount = balanceAfterInEth - balanceBeforeInEth;
-
-            let expectedWithdraw = web3.fromWei(50000000000000, denominationUnit);
-            nearEqual(withdrawAmount, expectedWithdraw);
+			let withdrawAmountInEth = web3.utils.fromWei(withdrawAmount, denominationUnit);
+            let expectedWithdraw = web3.utils.fromWei(BN(expectedDividendBalance), denominationUnit);
+            assert.equal(withdrawAmountInEth, expectedWithdraw);
         });
     });
 });

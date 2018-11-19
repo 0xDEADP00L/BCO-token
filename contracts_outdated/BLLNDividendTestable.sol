@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity 0.4.25;
 
 import {BLLNDividend} from "../BLLNDividend.sol";
 
@@ -18,8 +18,8 @@ contract BLLNDividendTestable is BLLNDividend {
             address user = address(i);
             UserHistory memory userHistory;
             userHistory.tokens = i;
-            userHistory.lastD_n = m_D_n;
-            m_userHistories[user] = userHistory;
+            userHistory.lastD_n = D_n;
+            userHistories[user] = userHistory;
         }
     }
 
@@ -28,8 +28,8 @@ contract BLLNDividendTestable is BLLNDividend {
             address user = address(i);
             UserHistory memory userHistory;
             userHistory.tokens = 1;
-            userHistory.lastD_n = m_D_n;
-            m_userHistories[user] = userHistory;
+            userHistory.lastD_n = D_n;
+            userHistories[user] = userHistory;
         }
     }
 
@@ -40,19 +40,19 @@ contract BLLNDividendTestable is BLLNDividend {
     function buyTokens(address _receiver) public payable {
         require(msg.value > 0);
 
-        uint256 totalSupply = m_token.totalSupply();
+        uint256 totalSupply = token.totalSupply();
         uint256 tokens;
         uint256 change;
         (tokens, change) = calculateTokensFrom(msg.value, totalSupply);
         uint256 tokenPrice = msg.value.sub(change);
 
-        m_sharedDividendBalance = m_sharedDividendBalance.add(tokenPrice);
+        sharedDividendBalance = sharedDividendBalance.add(tokenPrice);
 
-        m_D_n = m_D_n.add(tokenPrice.mul(rounding).div(m_totalTokens));
-        m_dividendBalances[_receiver] = m_dividendBalances[_receiver].add(change);
+        D_n = D_n.add(tokenPrice.mul(rounding).div(totalTokens));
+        dividendBalances[_receiver] = dividendBalances[_receiver].add(change);
 
         changeCommon += change;
-        require(m_token.mint(_receiver, tokens));
+        require(token.mint(_receiver, tokens));
     }
 
     function getCommonChange() public view returns (uint256) {
@@ -60,6 +60,6 @@ contract BLLNDividendTestable is BLLNDividend {
     }
 
     function getDividendBalance2(address _address) public view returns (uint256) {
-        return m_dividendBalances[_address].add(getDividendAmount(_address));
+        return dividendBalances[_address].add(getDividendAmount(_address));
     }
 }

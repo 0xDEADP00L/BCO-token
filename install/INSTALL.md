@@ -126,7 +126,7 @@ var Test = artifacts.require('TestContract');
 
 let denominationUnit = "finney";
 function money(number) {
-	return web3.toWei(number, denominationUnit);
+	return web3.utils.toWei(number, denominationUnit);
 }
 
 let presaleAmount = 10;
@@ -175,7 +175,8 @@ contract('TestTest', function(accounts) {
 			await dividends.buyToken({value: _ethers2, from: acc2});
 			await dividends.buyToken({value: _ethers3, from: acc3});
 
-			assert.equal(web3.eth.getBalance(dividends.address).toNumber(), _totalEthers);
+            let contractBalance = await web3.eth.getBalance(dividends.address);
+			assert.equal(contractBalance, _totalEthers);
 
 			let tokenBalance2 = await token.balanceOf(acc2);
 			assert.equal(tokenBalance2.toNumber(), _tokens2);

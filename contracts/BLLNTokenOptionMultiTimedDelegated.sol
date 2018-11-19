@@ -1,15 +1,15 @@
 pragma solidity 0.4.25;
 
-import "./BLLNTokenOptionTimed.sol";
+import "./BLLNTokenOptionMultiTimed.sol";
 
 
-contract BLLNTokenOptionDelegated is BLLNTokenOptionTimed {
+contract BLLNTokenOptionMultiTimedDelegated is BLLNTokenOptionMultiTimed {
 
     address public delegateAddress;
 
-    constructor(address _dividendAddress, address _tokenAddress, uint _closeTime, address _delegateAddress) public
-        BLLNTokenOptionTimed(_dividendAddress, _tokenAddress, _closeTime) {
-        delegateAddress = _delegateAddress;
+    constructor(address _dividendAddress, address _tokenAddress, address _delegatedAddress) public
+        BLLNTokenOptionMultiTimed(_dividendAddress, _tokenAddress) {
+        delegateAddress = _delegatedAddress;
     }
 
     modifier onlyDelegate() {

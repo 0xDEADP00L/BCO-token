@@ -8,7 +8,8 @@ let fs = require('fs');
 
 let denominationUnit = "szabo";
 function money(number) {
-	return web3.toWei(number, denominationUnit);
+	let bnNumber = web3.utils.toBN(number);
+	return web3.utils.toWei(bnNumber, denominationUnit);
 }
 
 let presaleAmount = 90*(10**6);

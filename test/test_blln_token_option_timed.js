@@ -1,21 +1,19 @@
-var BLLNToken = artifacts.require('BLLNToken');
-var BLLNDividends = artifacts.require('BLLNDividend');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNTokensaleController = artifacts.require('BLLNTokensaleController');
+let BLLNDividends = artifacts.require('BLLNDividend');
 var BLLNTokenOptionTimed = artifacts.require('BLLNTokenOptionTimed');
 
-let denominationUnit = "szabo";
-function money(number) {
-	return web3.toWei(number, denominationUnit);
-}
-
-function lastBlockTime() {
-    return web3.eth.getBlock('latest').timestamp;
-}
+var utils = require("../test_utils/utils.js");
+var money = utils.money;
+var BN = utils.BN;
+var lastBlockTime = utils.lastBlockTime;
+var assertThrows = utils.assertThrows;
 
 const increaseTime = function(duration) {
     const id = Date.now()
 
     return new Promise((resolve, reject) => {
-        web3.currentProvider.sendAsync({
+        web3.currentProvider.send({
             jsonrpc: '2.0',
             method: 'evm_increaseTime',
             params: [duration],
@@ -23,7 +21,7 @@ const increaseTime = function(duration) {
         }, err1 => {
             if (err1) return reject(err1)
 
-            web3.currentProvider.sendAsync({
+            web3.currentProvider.send({
                 jsonrpc: '2.0',
                 method: 'evm_mine',
                 id: id+1,
@@ -43,19 +41,24 @@ let closingTime;
 contract('Test BLLNTokenOptionTimed', function(acc) {
     let dividends;
     let token;
+    let tokensaleController;
     let tokenOptionTimed;
 
     let owner = acc[0];
     let optionOwner = acc[1];
 
     beforeEach(async function() {
-        dividends = await BLLNDividends.new(maxTotalSupply);
+        dividends = await BLLNDividends.new();
         token = await BLLNToken.new(dividends.address);
+        tokensaleController = await BLLNTokensaleController.new(maxTotalSupply, dividends.address, token.address)
+
         await dividends.setTokenAddress(token.address);
-        await dividends.mintPresale(presaleAmount, owner);
+        await token.setTokensaleControllerAddress(tokensaleController.address)
+
+        await tokensaleController.mintPresale(presaleAmount, owner);
 
         /// @dev configure presale duration
-        let lastBlock = lastBlockTime();
+        let lastBlock = await lastBlockTime();
         let presaleDuration = 30
         closingTime = lastBlock + presaleDuration
 
@@ -79,7 +82,7 @@ contract('Test BLLNTokenOptionTimed', function(acc) {
 
 	describe('Presale', function () {
         it('should mint tokens to optionTimed contract', async function() {
-            await dividends.mintPresale(1488, tokenOptionTimed.address);
+            await tokensaleController.mintPresale(1488, tokenOptionTimed.address);
             let tokenBalanceOption = await tokenOptionTimed.getTokenAmount();
 
             assert.equal(tokenBalanceOption.toNumber(), 1488);

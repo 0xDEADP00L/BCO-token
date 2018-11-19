@@ -1,26 +1,17 @@
-var BLLNToken = artifacts.require('BLLNToken');
-var BLLNDividends = artifacts.require('BLLNDividend');
+let BLLNToken = artifacts.require('BLLNToken');
+let BLLNTokensaleController = artifacts.require('BLLNTokensaleController');
+let BLLNTokensaleBasic = artifacts.require('BLLNTokensaleBasic');
+let BLLNDividends = artifacts.require('BLLNDividend');
 var BLLNTokenOptionG3 = artifacts.require('BLLNTokenOptionG3');
 
-let denominationUnit = "szabo";
-function money(number) {
-	return web3.toWei(number, denominationUnit);
-}
+var utils = require("../test_utils/utils.js");
+var money = utils.money;
+var BN = utils.BN;
+var lastBlockTime = utils.lastBlockTime;
+var assertThrows = utils.assertThrows;
 
-function lastBlockTime() {
-    return web3.eth.getBlock('latest').timestamp;
-}
-
-function assertThrows(promise, message) {
-    return promise.then(() => {
-        assert.isNotOk(true, message)
-    }).catch((e) => {
-        assert.include(e.message, 'VM Exception')
-    })
-}
-
-let presaleAmount = 10;
-let maxTotalSupply = 100;
+let presaleAmount = BN(10);
+let maxTotalSupply = BN(100);
 let tokenPrice = money(300);
 let optionOwner;
 let closingTime;
@@ -28,6 +19,8 @@ let closingTime;
 contract('Test BLLNTokenOptionG3', function(acc) {
     let dividends;
     let token;
+    let tokensaleController;
+    let tokensale;
     let tokenOptionG3;
 
     let owner = acc[0];
@@ -36,17 +29,24 @@ contract('Test BLLNTokenOptionG3', function(acc) {
     let g3Address = acc[3];
 
     /// @dev configure presale duration
-    let lastBlock = lastBlockTime();
-    let presaleDuration = 0
-    closingTime = lastBlock + presaleDuration
+    let presaleDuration = 0;
 
     beforeEach(async function() {
-        dividends = await BLLNDividends.new(maxTotalSupply);
-        token = await BLLNToken.new(dividends.address);
-        await dividends.setTokenAddress(token.address);
-        await dividends.mintPresale(presaleAmount, owner);
+		let lastBlock = await lastBlockTime();
+		closingTime = lastBlock + presaleDuration;
 
-        tokenOptionG3 = await BLLNTokenOptionG3.new(dividends.address,
+        dividends = await BLLNDividends.new();
+        token = await BLLNToken.new(dividends.address);
+        tokensaleController = await BLLNTokensaleController.new(maxTotalSupply, dividends.address, token.address)
+        tokensale = await BLLNTokensaleBasic.new(tokensaleController.address, tokenPrice);
+
+        await dividends.setTokenAddress(token.address);
+        await token.setTokensaleControllerAddress(tokensaleController.address);
+
+        await tokensaleController.mintPresale(presaleAmount, owner);
+        await tokensaleController.addAddressToWhitelist(tokensale.address);
+
+		tokenOptionG3 = await BLLNTokenOptionG3.new(dividends.address,
                                                    token.address,
                                                    closingTime,
                                                    delegatedAddress,
@@ -62,14 +62,14 @@ contract('Test BLLNTokenOptionG3', function(acc) {
 
         it('should revert transaction', async function() {
 
-            let _ethers = tokenPrice * 10
+            let _ethers = tokenPrice.mul(BN(10));
 
             /// @dev initial token balance is zero
             let optionOwnerTokenBalance = await token.balanceOf(optionOwner);
             assert.equal(optionOwnerTokenBalance.toNumber(), 0)
 
             /// @dev optionOwner buy 10 tokens
-            await dividends.buyToken({value: _ethers, from: optionOwner});
+            await tokensale.sendTransaction({value: _ethers, from: optionOwner});
             optionOwnerTokenBalance = await token.balanceOf(optionOwner);
             assert.equal(optionOwnerTokenBalance.toNumber(), 10)
 
@@ -79,14 +79,14 @@ contract('Test BLLNTokenOptionG3', function(acc) {
         });
 
         it('should fail by owner modifier', async function() {
-            let _ethers = tokenPrice * 10
+            let _ethers = tokenPrice.mul(BN(10));
 
             /// @dev initial token balance is zero
             let delegatedAddressTokenBalance = await token.balanceOf(delegatedAddress);
             assert.equal(delegatedAddressTokenBalance.toNumber(), 0)
 
             /// @dev delegatedAddress buy 10 tokens
-            await dividends.buyToken({value: _ethers, from: delegatedAddress});
+            await tokensale.sendTransaction({value: _ethers, from: delegatedAddress});
             delegatedAddressTokenBalance = await token.balanceOf(delegatedAddress);
             assert.equal(delegatedAddressTokenBalance.toNumber(), 10)
 
@@ -95,7 +95,7 @@ contract('Test BLLNTokenOptionG3', function(acc) {
         });
 
         it('should transfer tokens', async function () {
-            let _ethers = tokenPrice * 10
+            let _ethers = tokenPrice.mul(BN(10));
             let optionOwnerTokenBalance
             let g3contractTokenBalance
 
@@ -106,7 +106,7 @@ contract('Test BLLNTokenOptionG3', function(acc) {
             assert.equal(optionOwnerTokenBalance.toNumber(), 0);
 
             /// @dev optionOwner buy 10 tokens
-            await dividends.buyToken({value: _ethers, from: optionOwner});
+            await tokensale.sendTransaction({value: _ethers, from: optionOwner});
             optionOwnerTokenBalance = await token.balanceOf(optionOwner);
             assert.equal(optionOwnerTokenBalance.toNumber(), 10);
 
